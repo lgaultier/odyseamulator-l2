@@ -28,7 +28,8 @@ import logging
 import datetime
 import os
 
-import odyseamulator-l2.create_l2 as create_l2
+import odyseamulator_l2.create_l2 as create_l2
+
 # Set up logging                                                                 
 logger = logging.getLogger()
 logger.handlers = []
@@ -57,10 +58,14 @@ def run_odyseamulator():
                         required=False)
     parser.add_argument('--debug', action='store_true', default=False,
                         required=False)
+    parser.add_argument('--quiet', action='store_true', default=False,
+                        required=False)
 
     args = parser.parse_args()
     if args.verbose:
         logger.setLevel(logging.INFO)
     if args.debug:
         logger.setLevel(logging.DEBUG)
+    if args.quiet:
+        logger.setLevel(logging.ERROR)
     create_l2.run(args.parameter_file, args.first_cycle, args.last_cycle)

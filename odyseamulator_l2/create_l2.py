@@ -10,32 +10,24 @@ Create Odysea L2 like data from netcdf files and a python parameter file
 """
 
 
-from odyseamulator-l2.swath_sampling import OdyseaSwath
-import odyseamulator-l2.metadata as metadata
+from odyseamulator_l2.swath_sampling import OdyseaSwath
+import odyseamulator_l2.metadata as metadata
 
 import numpy
 import os
 import sys
 import tqdm
 import yaml
-import matplotlib
 import datetime
 import itertools
 import xarray
+import logging
 from scipy.interpolate import RegularGridInterpolator
 from typing import Optional, Tuple
 
-# from dask.distributed import Client
-# c = Client(n_workers=os.cpu_count()-2, threads_per_worker=1)
-
-font = {'weight': 'bold',
-        'size': 16}
-matplotlib.rc('font', **font)
-
-matplotlib.rc('font', **font)
-matplotlib.rc('lines', linewidth=4)
-matplotlib.rc('text', usetex=False)
-matplotlib.rcParams.update({"axes.grid": True, "grid.color": "black"})
+logger = logging.getLogger()
+handler = logging.StreamHandler()
+logger.addHandler(handler)
 
 ATTR_VARS = metadata.VARIABLES
 ATTR_GEO = metadata.GEOMETRY
@@ -174,7 +166,8 @@ def load_model(path_model: str, start: datetime.datetime,
     strstart = datetime.datetime.strftime(start, '%Y-%m-%d')
     strend = datetime.datetime.strftime(end, '%Y-%m-%d')
     model = model.sel(time=slice(strstart, strend))
-    print(model.keys(), strstart, strend, model['time'])
+    logger.info(f'simulation for [{strstart}, {strend}] period')
+    logger.debug(f'model starts at f{model['time'][0]}')
     if len(dic_coord.keys()) > 0:
         for key, value in dic_coord.items():
             if 'lon' in value:
@@ -210,7 +203,6 @@ def interp_model(o: xarray.Dataset, model: xarray.Dataset, bb: list,
     otmp = o #.isel(along_track=_slice)
     iminmax = numpy.where((otmp.lat.data[:, ind0] >= bb[2])
                           & (otmp.lat.data[:, ind1] <= bb[3]))[0]
-    print(iminmax[0], iminmax[-1])
     if asc is True:
         o2 = otmp.isel(along_track=slice(iminmax[0], iminmax[-1]))
     else:
@@ -328,7 +320,7 @@ def angle_across(lon, lat) -> numpy.ndarray:
 
 def make_oi(o: xarray.Dataset, signu: Optional[float] = 1,
             kernel:Optional[int] = 1) -> xarray.Dataset:
-    import odyseamulator-l2.optimal_interpolation as oi
+    import odyseamulator_l2.optimal_interpolation as oi
     dic_in = {}
     list_key = ('radial_angle_fore', 'radial_angle_aft', 'ur_fore', 'ur_aft',
                 'ur_nonoise_aft', 'ur_nonoise_fore', 'along_track', 'err_fore',
@@ -465,7 +457,11 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     stop = last_cycle * npass + 1
     i = 0
     c = first_cycle
-    for o in tqdm.tqdm(itertools.islice(orbits, start, stop, 1)):
+    # TODO remove tqdm for TREX 
+    loop_orbit = itertools.islice(orbits, start, stop, 1)
+    if logger.level < 40 :  # logging.error: 40
+        loop_orbit = tqdm.tqdm(loop_orbit)
+    for o in loop_orbit:
         i += 1
         if i%2 == 0:
             asc = False

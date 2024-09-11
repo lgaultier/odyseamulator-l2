@@ -23,17 +23,17 @@ def northRad(lat):
 def localRad(hdg, lat):
     """Local radius of curvature along heading
     (heading and latitude in radians)"""
-    return (eastRad(lat)*northRad(lat)/(eastRad(lat)*np.cos(hdg)**2 + 
+    return (eastRad(lat)*northRad(lat)/(eastRad(lat)*np.cos(hdg)**2 +
                                         northRad(lat)*np.sin(hdg)**2))
 
 
 #@jit(nopython=True,cache=True)
-def getPegPointVector(peg_lat,peg_lon):
+def getPegPointVector(peg_lat, peg_lon):
     """Get vector from WGS-84 center to peg point in
     geocentric coordinates."""
     ECCENTRICITY_SQ = 0.00669437999015
 
-    p = np.zeros(3,np.float64)
+    p = np.zeros(3, np.float64)
 
     # Calculate useful constants
     clt = np.cos(peg_lat);
@@ -52,12 +52,13 @@ def getPegPointVector(peg_lat,peg_lon):
     return p
 
 #@jit(nopython=True,cache=True)
-def getXYZ_to_GEO_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius):
+def getXYZ_to_GEO_affine(peg_lat, peg_lon, peg_hdg, peg_localRadius):
     """Function to compute the transformation matrix
     form xyz to geocentric"""
 
-    m = np.zeros((3,3),np.float64)
-    up = np.zeros(3,np.float64) #local up vector in geocentric coordinates */
+    m = np.zeros((3, 3), np.float64)
+    up = np.zeros(3, np.float64)
+    # local up vector in geocentric coordinates */
 
     # Calculate useful constants
     clt = np.cos(peg_lat);
@@ -79,7 +80,7 @@ def getXYZ_to_GEO_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius):
     m[2][2] = clt*shg;
 
     #Find the vector from the center of the ellipsoid to the peg point */
-    p = getPegPointVector(peg_lat,peg_lon);
+    p = getPegPointVector(peg_lat, peg_lon);
 
     # Calculate the local upward vector in geocentric coordinates */
     up[0] = peg_localRadius*clt*clo;
@@ -92,12 +93,12 @@ def getXYZ_to_GEO_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius):
     return m, ov
 
 #@jit(nopython=True,cache=True)
-def getGEO_to_XYZ_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius):
+def getGEO_to_XYZ_affine(peg_lat, peg_lon, peg_hdg, peg_localRadius):
     """Function to compute the transformation matrix form
     geocentric to xyz"""
 
     # Call the forward transform
-    m, ov = getXYZ_to_GEO_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius)
+    m, ov = getXYZ_to_GEO_affine(peg_lat, peg_lon, peg_hdg, peg_localRadius)
 
     # Inverse rotation matrix is transpose
     a = m.transpose()
@@ -111,7 +112,7 @@ def getGEO_to_XYZ_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius):
     return a, d
 
 #@jit(nopython=True,cache=True)
-def geo_array_to_xyz_array(v, peg_lat,peg_lon,peg_hdg,peg_localRadius):
+def geo_array_to_xyz_array(v, peg_lat, peg_lon, peg_hdg, peg_localRadius):
     """Go from geocentric coordinates to xyz coordinates, with peg point peg_
     The geocentric vector is an array of shape (npoints,3).
     """
@@ -119,10 +120,10 @@ def geo_array_to_xyz_array(v, peg_lat,peg_lon,peg_hdg,peg_localRadius):
     npoints = v.shape[0]
 
     # Initialize the xyz point
-    p = np.zeros((npoints,3),dtype=np.float64)
+    p = np.zeros((npoints,3), dtype=np.float64)
 
     # Get affine transformation
-    a, d = getGEO_to_XYZ_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius)
+    a, d = getGEO_to_XYZ_affine(peg_lat, peg_lon, peg_hdg, peg_localRadius)
 
     # Apply affine transformation
 
@@ -133,11 +134,11 @@ def geo_array_to_xyz_array(v, peg_lat,peg_lon,peg_hdg,peg_localRadius):
     return p;
 
 #@jit(nopython=True,cache=True)
-def xyz_array_to_sch_array(p_xyz,peg_localRadius):
+def xyz_array_to_sch_array(p_xyz, peg_localRadius):
     npoints = p_xyz.shape[0]
-    s = np.zeros(npoints,dtype=np.float64)
-    c = np.zeros(npoints,dtype=np.float64)
-    h = np.zeros(npoints,dtype=np.float64)
+    s = np.zeros(npoints, dtype=np.float64)
+    c = np.zeros(npoints, dtype=np.float64)
+    h = np.zeros(npoints, dtype=np.float64)
 
     x = p_xyz[:,0]
     y = p_xyz[:,1]
@@ -150,9 +151,9 @@ def xyz_array_to_sch_array(p_xyz,peg_localRadius):
     return s,c,h
 
 #@jit(nopython=True,cache=True)
-def sch_array_to_xyz_array(s,c,h,peg_localRadius):
+def sch_array_to_xyz_array(s, c, h, peg_localRadius):
     npoints = s.shape[0]
-    p_xyz = np.zeros((npoints,3),dtype=np.float64)
+    p_xyz = np.zeros((npoints, 3), dtype=np.float64)
 
     c_lat = c/peg_localRadius;
     s_lon = s/peg_localRadius;
@@ -166,28 +167,28 @@ def sch_array_to_xyz_array(s,c,h,peg_localRadius):
     return p_xyz
 
 #@jit(nopython=True,cache=True)
-def xyz_array_to_geo_array(p_xyz,peg_lat,peg_lon,peg_hdg,peg_localRadius):
+def xyz_array_to_geo_array(p_xyz, peg_lat, peg_lon, peg_hdg, peg_localRadius):
     """Go from xyz array to a geo array."""
 
     # Get affine transformation
-    m, ov = getXYZ_to_GEO_affine(peg_lat,peg_lon,peg_hdg,peg_localRadius)
+    m, ov = getXYZ_to_GEO_affine(peg_lat, peg_lon, peg_hdg, peg_localRadius)
 
     # Test whether an array is being passed, or just a single point
 
     npoints = p_xyz.shape[0]
-    p = np.zeros((npoints,3),dtype=np.float64)
+    p = np.zeros((npoints, 3), dtype=np.float64)
 
     # Apply affine transformation
 
-    x = p_xyz[:,0]
-    y = p_xyz[:,1]
-    z = p_xyz[:,2]
+    x = p_xyz[:, 0]
+    y = p_xyz[:, 1]
+    z = p_xyz[:, 2]
 
     p[:,0] = m[0][0]*x + m[0][1]*y + m[0][2]*z + ov[0];
     p[:,1] = m[1][0]*x + m[1][1]*y + m[1][2]*z + ov[1];
     p[:,2] = m[2][0]*x + m[2][1]*y + m[2][2]*z + ov[2];
 
-    return p;
+    return p
 
 #@jit(nopython=True,cache=True)
 def geo_array_to_llh_array(v):
@@ -201,16 +202,16 @@ def geo_array_to_llh_array(v):
     SEMIMINOR_AXIS = 6356752.3135930374
 
     npoints = v.shape[0]
-    lat = np.zeros((npoints,),dtype=np.float64)
-    lon = np.zeros((npoints,),dtype=np.float64)
-    h = np.zeros((npoints,),dtype=np.float64)
+    lat = np.zeros((npoints,), dtype=np.float64)
+    lon = np.zeros((npoints,), dtype=np.float64)
+    h = np.zeros((npoints,), dtype=np.float64)
 
     # Longitude
-    lon = np.arctan2(v[:,1],v[:,0])
+    lon = np.arctan2(v[:, 1], v[:, 0])
 
-    x = v[:,0]
-    y = v[:,1]
-    z = v[:,2]
+    x = v[:, 0]
+    y = v[:, 1]
+    z = v[:, 2]
 
     # Geodetic Latitude
     projRad = np.sqrt(x**2 + y**2)
@@ -229,11 +230,12 @@ def geo_array_to_llh_array(v):
     # height
     h = projRad/np.cos(lat) - eastRad(lat)
 
-    return np.degrees(lat),np.degrees(lon),h
+    return np.degrees(lat), np.degrees(lon), h
 
 
 #@jit(nopython=True,cache=True)
-def llh_array_to_sch_array(lat,lon,h,peg_lat,peg_lon,peg_hdg,peg_localRadius):
+def llh_array_to_sch_array(lat, lon, h, peg_lat, peg_lon, peg_hdg,
+                           peg_localRadius):
     """Go from lat,lon,h arrays to s,c,h arrays."""
     ECCENTRICITY_SQ = 0.00669437999015
 
@@ -254,24 +256,28 @@ def llh_array_to_sch_array(lat,lon,h,peg_lat,peg_lon,peg_hdg,peg_localRadius):
 
     # Go from geocentric to xyz
 
-    p_xyz = geo_array_to_xyz_array(v,peg_lat,peg_lon,peg_hdg,peg_localRadius)
+    p_xyz = geo_array_to_xyz_array(v, peg_lat, peg_lon, peg_hdg,
+                                   peg_localRadius)
 
     # Go from xyz to sch
 
-    s,c,h = xyz_array_to_sch_array(p_xyz,peg_localRadius)
+    s,c,h = xyz_array_to_sch_array(p_xyz, peg_localRadius)
 
-    return s,c,h
+    return s, c, h
 
-def sch_array_to_llh_array(s,c,h,peg_lat,peg_lon,peg_hdg,peg_localRadius):
+
+def sch_array_to_llh_array(s, c, h, peg_lat, peg_lon, peg_hdg,
+                           peg_localRadius):
     """Go from s,c,h arrays to lat,lon,h arrays."""
 
     # go from sch to xyz
 
-    p_xyz = sch_array_to_xyz_array(s,c,h,peg_localRadius)
+    p_xyz = sch_array_to_xyz_array(s, c, h, peg_localRadius)
 
     # go from xyz to geocentric
 
-    p_geo = xyz_array_to_geo_array(p_xyz,peg_lat,peg_lon,peg_hdg,peg_localRadius)
+    p_geo = xyz_array_to_geo_array(p_xyz, peg_lat, peg_lon, peg_hdg,
+                                   peg_localRadius)
 
     # go from geocentric to llh
 
