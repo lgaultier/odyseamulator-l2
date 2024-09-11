@@ -1,0 +1,12 @@
+# Use official repository
+-i https://pypi.python.org/simple
+
+Numpy
+Scipy
+xarray
+pyyaml
+matplotlib
+cartopy
+tqdm
+netCDF4
+dask
