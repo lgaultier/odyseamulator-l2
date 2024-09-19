@@ -11,7 +11,7 @@ from scipy.interpolate import UnivariateSpline
 
 def splineFactory(x, y, smoothing=.1):
     spl = UnivariateSpline(x, y)
-    spl.set_smoothing_factor(.1)
+    spl.set_smoothing_factor(smoothing)
     return spl
 
 

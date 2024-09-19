@@ -1,7 +1,9 @@
-# odysea-science-simulator
+# odyseamulator-l2
 
 
 Simulation tools for the ODYSEA winds and currents mission. For more information about ODYSEA, see: https://odysea.ucsd.edu/
+
+
 This simulator enables statistical simulation of ODYSEA-like L2 observations of the surface currents. Its purpose is to generate efficiently realistic observations for science studies. The statistical noise is generated using look up tables provided by the development team
 
 ## ODYSEA
@@ -15,6 +17,16 @@ Installation is completed via pip. Clone this repository and navigate to odyseam
 
 >pip install .
 
+## Run simulator
+
+>odyseamul [parameter-file] --first\_cycle [integer] --last\_cycle [integer]
+
+The parameter-file contains Information regarding the satellite configuration
+(orbits, instrumental noise) and the OGCM model that will be used as an input.
+
+
+
+
 ## Dependencies
 
 >xarray,
@@ -24,5 +36,9 @@ numpy,
 pandas,
 pyyaml,
 cartopy (for plotting only)
+tqdm
+
+
+
 
 

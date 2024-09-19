@@ -29,6 +29,7 @@ import datetime
 import os
 
 import odyseamulator_l2.create_l2 as create_l2
+import odyseamulator_l2.save_swath as save_swath
 
 # Set up logging                                                                 
 logger = logging.getLogger()
@@ -69,3 +70,34 @@ def run_odyseamulator():
     if args.quiet:
         logger.setLevel(logging.ERROR)
     create_l2.run(args.parameter_file, args.first_cycle, args.last_cycle)
+
+def backup_orbit():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('parameter_file',
+                        type=str, default='',
+                        help=f'Python parameter file path'
+                        )
+    parser.add_argument('--first_cycle',
+                        type=int, default=0,
+                        help=f'Python parameter file path'
+                        )
+
+    parser.add_argument('--last_cycle',
+                        type=int, default=2,
+                        help=f'Python parameter file path'
+                        )
+    parser.add_argument('--verbose', action='store_true', default=False,
+                        required=False)
+    parser.add_argument('--debug', action='store_true', default=False,
+                        required=False)
+    parser.add_argument('--quiet', action='store_true', default=False,
+                        required=False)
+
+    args = parser.parse_args()
+    if args.verbose:
+        logger.setLevel(logging.INFO)
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    if args.quiet:
+        logger.setLevel(logging.ERROR)
+    save_swath.run(args.parameter_file, args.first_cycle, args.last_cycle)

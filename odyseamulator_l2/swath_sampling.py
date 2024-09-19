@@ -25,7 +25,7 @@ ATTR_COORD = metadata.COORDINATES
 
 def splineFactory(x, y, smoothing=.1):
     spl = UnivariateSpline(x, y)
-    spl.set_smoothing_factor(.1)
+    spl.set_smoothing_factor(smoothing)
     return spl
 
 
@@ -162,7 +162,7 @@ class OdyseaSwath:
         self.config_fname=config_fname
 
     def getOrbitSwath(self, orbit_x, orbit_y, orbit_z, orbit_time_stamp,
-                      orbit_s, write=False):
+                      orbit_s, bounding_box=[-180, 180, -90, 90], write=False):
 
         time_stamp_vector = orbit_time_stamp
         coarse_x = orbit_x
@@ -201,18 +201,17 @@ class OdyseaSwath:
 
         res = [np.nan * np.zeros((ns, nc)) for _ in range(0, 4)]
         slat, slon, sh, s_time = res
-
-        pf_x_smoothed = splineFactory(platform_s, coarse_x)(s_pegs)
-        pf_y_smoothed = splineFactory(platform_s, coarse_y)(s_pegs)
-        pf_z_smoothed = splineFactory(platform_s, coarse_z)(s_pegs)
+        sm = 0.2
+        pf_x_smoothed = splineFactory(platform_s, coarse_x, smoothing=sm)(s_pegs)
+        pf_y_smoothed = splineFactory(platform_s, coarse_y, smoothing=sm)(s_pegs)
+        pf_z_smoothed = splineFactory(platform_s, coarse_z,smoothing=sm)(s_pegs)
 
         pf_time_smoothed = splineFactory(platform_s, time_stamp_vector,
-                                         smoothing=0)(s_pegs)
+                                         smoothing=sm)(s_pegs)
 
         res = ecef_to_llh(pf_x_smoothed, pf_y_smoothed, pf_z_smoothed)
         pf_lat_smoothed, pf_lon_smoothed, pf_h_smoothed = res
         pf_bearing_smoothed = getBearing(pf_lat_smoothed, pf_lon_smoothed)
-
         for idx_s, s in enumerate(s_pegs):
             peg_lat = pf_lat_smoothed[idx_s]
             peg_lon = pf_lon_smoothed[idx_s]
@@ -228,11 +227,20 @@ class OdyseaSwath:
         mask = np.isfinite(slat + slon + s_time)
 
 
-        sample_time_track = s_time
-        sample_lat_track = slat
-        sample_lon_track = slon
+        urlat = bounding_box[3] + 5
+        lllat = bounding_box[2] - 5
+        urlon = bounding_box[1] + 10
+        lllon = bounding_box[0] - 10
+        mid = int(np.shape(slat)[1]/2)
+        sm_index = np.where((slat[:, mid] > lllat) & (slat[:, mid] < urlat)
+                             & (slon[:, mid] > lllon) & (slon[:, mid] < urlon))
+        if len(sm_index[0]) == 0:
+            return None
+        sample_time_track = s_time[sm_index[0], :]
+        sample_lat_track = slat[sm_index[0], :]
+        sample_lon_track = slon[sm_index[0], :]
 
-
+        print(sample_time_track[0:10, 0])
         ds = xr.Dataset()
 
         along_track_sz, cross_track_sz = np.shape(sample_time_track)
@@ -244,8 +252,9 @@ class OdyseaSwath:
                     "lat": {"dtype": "int16", "zlib": True, 'complevel': 9,
                             '_FillValue':-9999, 'scale_factor':.01,
                             'add_offset':90},
-                    "sample_time": {"dtype": "float32", "zlib": True,
+                    "sample_time": {"dtype": "float64", "zlib": True,
                                     'complevel': 9, '_FillValue':-9999,
+                                    #},
                                     'least_significant_digit':1},
                     "swath_blanking": {"dtype": "int16", "zlib": True,
                                        'complevel': 3,'_FillValue':-9999},
@@ -268,6 +277,7 @@ class OdyseaSwath:
         sample_time_track_dt = [np.datetime64('1970-01-01') + np.timedelta64(int(stt*1000),'ms') for stt in sample_time_track.flatten()]
         sample_time_track_dt = np.reshape(sample_time_track_dt,
                                           np.shape(sample_time_track)).astype('datetime64[s]')
+        print(sample_time_track_dt[:10, 0])
 
         ds = ds.assign({'sample_time': ([ 'along_track', 'cross_track'],
                                         np.array(sample_time_track_dt),
@@ -357,7 +367,8 @@ class OdyseaSwath:
             self.coarse_z = orbit_out['coarse_z']
             self.coarse_s = orbit_out['coarse_s']
 
-    def getOrbits(self, start_time, end_time, set_azimuth=True):
+    def getOrbits(self, start_time, end_time, set_azimuth=True,
+                  bounding_box=[-180, 180, -90, 90]):
         """
         Return an iterator that contains xarray datasets, each dataset
             representing a single Odysea orbit, with the full iterator
@@ -397,8 +408,9 @@ class OdyseaSwath:
                                     self.coarse_z[start_idx:end_idx],
                                     self.time_stamp_vector_coarse[start_idx:end_idx],
                                     self.coarse_s[start_idx:end_idx],
-                                    write=False)
-
+                                    write=False,
+                                    bounding_box=bounding_box)
+            if ds is None: continue
             if set_azimuth:
                 ds = self.setAzimuth(ds)
             yield ds
@@ -428,7 +440,11 @@ class OdyseaSwath:
         platform_longitude = np.nanmean(orbit.lon.values[:, start:stop], axis=1)
         bearing = utils.getBearing(platform_latitude*np.pi/180,
                                    platform_longitude*np.pi/180)
-        bearing = utils.splineFactory(orbit.along_track.values,bearing)(orbit.along_track.values)
+        sm = 0.2
+        try:
+            bearing = utils.splineFactory(orbit.along_track.values,bearing, smoothing=sm)(orbit.along_track.values)
+        except:
+            return None
 
         azimuth_fore =  utils.normalizeTo180((encoder_fore + bearing[:, np.newaxis]))
         azimuth_aft =  utils.normalizeTo180((encoder_aft + bearing[:, np.newaxis]))

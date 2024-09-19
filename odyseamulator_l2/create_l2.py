@@ -12,6 +12,7 @@ Create Odysea L2 like data from netcdf files and a python parameter file
 
 from odyseamulator_l2.swath_sampling import OdyseaSwath
 import odyseamulator_l2.metadata as metadata
+import odyseamulator_l2.read_data as read_data
 
 import numpy
 import os
@@ -58,6 +59,7 @@ def init_parameters(params):
     params.var_current = getattr(params, 'var_current', ('SSU', 'SSV'))
     params.dic_coord = getattr(params, 'dic_coord', {})
     params.dic_coord_wind = getattr(params, 'dic_coord_wind', {})
+    params.bounding_box = getattr(params, 'bounding_box', {})
     return None
 
 
@@ -141,10 +143,13 @@ def colocateSwathCurrents(model: xarray.Dataset, orbit: xarray.Dataset,
 
 def load_orbit(orbit_fname: str, config_fname: str,
                start_time: datetime.datetime, end_time: datetime.datetime,
-               year_ref: Optional[int] = 2020) -> xarray.Dataset:
+               year_ref: Optional[int] = 2020,
+               bounding_box: Optional[list] = [-180, 180, -90, 90],
+               ) -> xarray.Dataset:
     odysea = OdyseaSwath(orbit_fname=orbit_fname, config_fname=config_fname,
                          year_ref=year_ref)
-    orbits = odysea.getOrbits(start_time=start_time, end_time=end_time)
+    orbits = odysea.getOrbits(start_time=start_time, end_time=end_time,
+                              bounding_box=bounding_box)
     return orbits
 
 
@@ -203,6 +208,8 @@ def interp_model(o: xarray.Dataset, model: xarray.Dataset, bb: list,
     otmp = o #.isel(along_track=_slice)
     iminmax = numpy.where((otmp.lat.data[:, ind0] >= bb[2])
                           & (otmp.lat.data[:, ind1] <= bb[3]))[0]
+    if len(iminmax) <2:
+        return None
     if asc is True:
         o2 = otmp.isel(along_track=slice(iminmax[0], iminmax[-1]))
     else:
@@ -434,40 +441,86 @@ def generate_pass(params, i: int, c: int, o: xarray.Dataset,
                 encoding[key] = metadata.ENC_FV
         o_out.to_netcdf(file_out, 'w', format="NETCDF4", encoding=encoding)
 
+def yield_orbit(list_orbit: list):
+    for orbit in list_orbit:
+        yield orbit
+
 
 def run(parameter_file:str, first_cycle: int, last_cycle: int):
+    logger.debug(f'Load parameter file {parameter_file}')
     params = load_python_file(parameter_file)
-    orbits = load_orbit(params.orbit_file, params.config_file,
-                        params.start_time, params.end_time,
-                        year_ref=params.year_ref)
-    model = load_model(params.path_model, params.start_time, params.end_time,
-                       dic_coord=params.dic_coord)
+    logger.debug('load orbit')
+    save_file = '/mnt/data/save_orbit.pyo'
+    if os.path.exists(save_file):
+        import pickle
+        with open(save_file, 'rb') as f:
+            dic = pickle.load(f)
+        yorbits = yield_orbit(dic['orbits'])
+    else:
+        yorbits = load_orbit(params.orbit_file, params.config_file,
+                             params.start_time, params.end_time,
+                             year_ref=params.year_ref,
+                             bounding_box=params.bounding_box)
+    logger.debug('load model')
+    model = read_data.load_model(params.path_model, params.start_time,
+                                 params.end_time,
+                                 dic_coord=params.dic_coord)
+    logger.debug(f'load configuration{params.config_file}')
     with open(params.config_file, 'r') as ymlfile:
         cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
     npass = cfg['NPASS']
     wind_data = None
     if params.wind_path is not None:
-        wind_data = load_model(params.path_wind, params.start_time,
-                               params.end_time,
-                               dic_coord=params.dic_coord_wind)
-    vradial_interpolator = generate_interpolator(params.lut_fn,
-                                                 key=params.sigma_vr)
+        logger.debug('load wind')
+        wind_data = read_data.load_model(params.path_wind, params.start_time,
+                                         params.end_time,
+                                         dic_coord=params.dic_coord_wind)
+    logger.debug(f'generate noise interpolator')
+    if os.path.exists(save_file):
+        vradial_interpolator = dic['vradial_interpolator']
+    else:
+        vradial_interpolator = generate_interpolator(params.lut_fn,
+                                                     key=params.sigma_vr)
+    #else:
+    #    with open(save_file, 'wb') as f:
+    #        dic_save = pickle.load(f)
+    #        yorbits = dic_save['orbits']
+    #        vradial_interpolator = dic_save['vradial_interpolator']
     os.makedirs(params.path_out, exist_ok=True)
     start = first_cycle * npass
     stop = last_cycle * npass + 1
     i = 0
     c = first_cycle
-    # TODO remove tqdm for TREX 
-    loop_orbit = itertools.islice(orbits, start, stop, 1)
+    # TODO re(params.start_time.year - params.stop_time.year)move tqdm for TREX 
+    dtime = 0
+    dlon_m = 0
+    ntimes = params.end_time.year - params.start_time.year + 1
+    logger.debug(f'Start for loops and repeat orbit {ntimes}')
+    #for orbits in itertools.repeat(yorbits, times=ntimes):
+#    if True:
+    norbits = 2411 #len(list(yorbits))
+    print(norbits)
+    logger.debug(f'Process orbits from {start} to {stop}')
+    loop_orbit = itertools.islice(yorbits, start, stop, 1)
     if logger.level < 40 :  # logging.error: 40
         loop_orbit = tqdm.tqdm(loop_orbit)
+    logger.debug('Start processing orbit')
     for o in loop_orbit:
+        logger.debug(f'processing cycle {c} pass {i}, time start at {o["sample_time"]}')
         i += 1
+        o['lon'] = o['lon'] - dlon_m /(111110 * numpy.cos(numpy.deg2rad(o['lat'])))
+        o['sample_time'] = o['sample_time'] + dtime
+        if (c * npass) > norbits:
+            dlon_m = dlon_m + 200
+            norbits+= norbits
+            dtime += o['time'][-1]
+            break
         if i%2 == 0:
             asc = False
         else:
             asc = True
-        generate_pass(params, i, c, o, model, wind_data, vradial_interpolator,
+        generate_pass(params, i, c, o, model, wind_data,
+                      vradial_interpolator,
                       params.var_current, params.var_wind,
                       asc=asc)
         logger.info(f'pass {i} cycle {c} generated')

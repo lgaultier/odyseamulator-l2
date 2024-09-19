@@ -50,7 +50,8 @@ with open('requirements.txt', 'r') as f:
     lines = [x.strip() for x in f if 0 < len(x.strip())]
     requirements = [x for x in lines if x[0].isalpha()]
 
-cmds = ['odyseamul = {}.cli:run_odyseamulator'.format(__package_name__),]
+cmds = ['odyseamul = {}.cli:run_odyseamulator'.format(__package_name__),
+        'backup_orbit = {}.cli:backup_orbit'.format(__package_name__),]
 
 setup(
       name='odyseamulator_l2',
