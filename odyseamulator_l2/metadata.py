@@ -34,7 +34,10 @@ COORDINATES = {'along_track': {'dtype': 'int64',
                     'units': 'degrees_north'},
             'lon': {'dtype': 'float32', 'valid_min': -180., 'valid_max': 180,
                     'long_name': 'longitude', 'standard_name': 'longitude',
-                    'units': 'degrees_east'}
+                    'units': 'degrees_east'},
+            'number_of_pass': {'dtype': 'int32', 'valid_min': 0., 'valid_max': 1000000,
+                    'long_name': 'total number of passes since start', 'standard_name': 'number_of_pass',
+                    'units': ''}
                }
 
 GEOMETRY = {'swath_blanking': {

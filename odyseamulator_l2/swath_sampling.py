@@ -162,7 +162,8 @@ class OdyseaSwath:
         self.config_fname=config_fname
 
     def getOrbitSwath(self, orbit_x, orbit_y, orbit_z, orbit_time_stamp,
-                      orbit_s, bounding_box=[-180, 180, -90, 90], write=False):
+                      orbit_s, bounding_box=[-180, 180, -90, 90], pass_total=0,
+                      write=False):
 
         time_stamp_vector = orbit_time_stamp
         coarse_x = orbit_x
@@ -266,7 +267,10 @@ class OdyseaSwath:
                                       ATTR_COORD['along_track']),
                                       'cross_track': (['cross_track'],
                                       np.arange(0, cross_track_sz),
-                                      ATTR_COORD['cross_track'])})
+                                      ATTR_COORD['cross_track']),
+                                      'number_of_pass': (['number_of_pass'],
+                                      [pass_total, ],
+                                      ATTR_COORD['number_of_pass'])})
         nanmask = np.isnan(sample_time_track + sample_lat_track
                            + sample_lon_track)
 
@@ -393,7 +397,7 @@ class OdyseaSwath:
         end_index = _index[0][-1]
 
         valid_orbit_cut_points = self.orbit_cut_points[(self.orbit_cut_points > start_index) & (self.orbit_cut_points < end_index)]
-
+        pass_total = 0
         for idx_orbit,orbit_start in enumerate(valid_orbit_cut_points):
 
             start_idx = orbit_start
@@ -408,11 +412,14 @@ class OdyseaSwath:
                                     self.coarse_z[start_idx:end_idx],
                                     self.time_stamp_vector_coarse[start_idx:end_idx],
                                     self.coarse_s[start_idx:end_idx],
+                                    pass_total = pass_total,
                                     write=False,
                                     bounding_box=bounding_box)
+            pass_total += 1
             if ds is None: continue
             if set_azimuth:
                 ds = self.setAzimuth(ds)
+                if ds is None: continue
             yield ds
 
     def setAzimuth(self, orbit):

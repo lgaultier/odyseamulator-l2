@@ -494,6 +494,7 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     # TODO re(params.start_time.year - params.stop_time.year)move tqdm for TREX 
     dtime = 0
     dlon_m = 0
+    cprev = 0
     ntimes = params.end_time.year - params.start_time.year + 1
     logger.debug(f'Start for loops and repeat orbit {ntimes}')
     #for orbits in itertools.repeat(yorbits, times=ntimes):
@@ -510,10 +511,13 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
         i += 1
         o['lon'] = o['lon'] - dlon_m /(111110 * numpy.cos(numpy.deg2rad(o['lat'])))
         o['sample_time'] = o['sample_time'] + dtime
+        total_pass = o['number_of_pass']
+        i = total_pass[0] % npass
+        c = int(total_pass[0]/npass + cprev)
         if (c * npass) > norbits:
             dlon_m = dlon_m + 200
             norbits+= norbits
-            dtime += o['time'][-1]
+            dtime += o['sample_time'][-1]
             break
         if i%2 == 0:
             asc = False
