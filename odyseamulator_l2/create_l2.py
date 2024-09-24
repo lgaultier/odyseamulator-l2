@@ -450,7 +450,7 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     logger.debug(f'Load parameter file {parameter_file}')
     params = load_python_file(parameter_file)
     logger.debug('load orbit')
-    save_file = '/mnt/data/save_orbit.pyo'
+    save_file = params.pickle_swath
     if os.path.exists(save_file):
         import pickle
         with open(save_file, 'rb') as f:
@@ -499,7 +499,7 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     logger.debug(f'Start for loops and repeat orbit {ntimes}')
     #for orbits in itertools.repeat(yorbits, times=ntimes):
 #    if True:
-    norbits = 2411 #len(list(yorbits))
+    norbits = cfg['NPASS_1Y']
     print(norbits)
     logger.debug(f'Process orbits from {start} to {stop}')
     loop_orbit = itertools.islice(yorbits, start, stop, 1)
@@ -509,16 +509,20 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     for o in loop_orbit:
         logger.debug(f'processing cycle {c} pass {i}, time start at {o["sample_time"]}')
         i += 1
+        dlon_m = 0
+        dtime = cfg['NSEC_CYCLE'] * params.ntimes
+        total_pass = o['number_of_pass']
+        i = int(total_pass[0] % npass)
+        c = int(total_pass[0]/npass +params.ntimes * norbits / npass)
         o['lon'] = o['lon'] - dlon_m /(111110 * numpy.cos(numpy.deg2rad(o['lat'])))
         o['sample_time'] = o['sample_time'] + dtime
-        total_pass = o['number_of_pass']
-        i = total_pass[0] % npass
-        c = int(total_pass[0]/npass + cprev)
-        if (c * npass) > norbits:
-            dlon_m = dlon_m + 200
-            norbits+= norbits
-            dtime += o['sample_time'][-1]
-            break
+        dlon_m = 0
+
+        #if (c * npass) > norbits:
+        #    dlon_m = dlon_m + delta_lon_1y
+        #    norbits+= norbits
+        #    dtime += o['sample_time'][-1]
+        #    break
         if i%2 == 0:
             asc = False
         else:
