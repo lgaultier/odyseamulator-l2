@@ -487,16 +487,15 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     #        yorbits = dic_save['orbits']
     #        vradial_interpolator = dic_save['vradial_interpolator']
     os.makedirs(params.path_out, exist_ok=True)
-    start = first_cycle * npass
-    stop = last_cycle * npass + 1
+    start = first_cycle #* npass
+    stop = last_cycle #* npass + 1
     i = 0
     c = first_cycle
     # TODO re(params.start_time.year - params.stop_time.year)move tqdm for TREX 
     dtime = 0
     dlon_m = 0
-    cprev = 0
-    ntimes = params.end_time.year - params.start_time.year + 1
-    logger.debug(f'Start for loops and repeat orbit {ntimes}')
+    #ntimes = params.end_time.year - params.start_time.year + 1
+    logger.debug(f'Start for loops and repeat orbit {params.ntimes}')
     #for orbits in itertools.repeat(yorbits, times=ntimes):
 #    if True:
     norbits = cfg['NPASS_1Y']
@@ -507,16 +506,15 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
         loop_orbit = tqdm.tqdm(loop_orbit)
     logger.debug('Start processing orbit')
     for o in loop_orbit:
-        logger.debug(f'processing cycle {c} pass {i}, time start at {o["sample_time"]}')
         i += 1
         dlon_m = 0
         dtime = cfg['NSEC_CYCLE'] * params.ntimes
         total_pass = o['number_of_pass']
         i = int(total_pass[0] % npass)
-        c = int(total_pass[0]/npass +params.ntimes * norbits / npass)
+        c = int(total_pass[0]/npass + params.ntimes * norbits / npass)
         o['lon'] = o['lon'] - dlon_m /(111110 * numpy.cos(numpy.deg2rad(o['lat'])))
-        o['sample_time'] = o['sample_time'] + dtime
-        dlon_m = 0
+        o['sample_time'] = o['sample_time'] + numpy.timedelta64(abs(int(dtime)), 's')
+        logger.debug(f'processing cycle {c} pass {i}, time start at {o["sample_time"]}')
 
         #if (c * npass) > norbits:
         #    dlon_m = dlon_m + delta_lon_1y
@@ -533,6 +531,6 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
                       asc=asc)
         logger.info(f'pass {i} cycle {c} generated')
 
-        if i >= npass:
-            c = c + 1
-            i = 0
+#        if i >= npass:
+#            c = c + 1
+#            i = 0

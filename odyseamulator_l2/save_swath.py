@@ -126,7 +126,7 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
     logger.debug(f'Load parameter file {parameter_file}')
     params = load_python_file(parameter_file)
     logger.debug('load orbit')
-    save_file = params.piackle_swath
+    save_file = params.pickle_swath
     logger.debug(f'load configuration{params.config_file}')
     with open(params.config_file, 'r') as ymlfile:
         cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
