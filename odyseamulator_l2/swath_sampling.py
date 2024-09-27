@@ -15,10 +15,15 @@ import datetime
 from pathlib import Path
 import os
 import importlib.resources as import_resources
+import logging
 
 from odyseamulator_l2.coordinates import *
 from odyseamulator_l2 import utils
 from odyseamulator_l2 import metadata
+
+logger = logging.getLogger()
+handler = logging.StreamHandler()
+logger.addHandler(handler)
 
 ATTR_GEO = metadata.GEOMETRY
 ATTR_COORD = metadata.COORDINATES
@@ -241,7 +246,6 @@ class OdyseaSwath:
         sample_lat_track = slat[sm_index[0], :]
         sample_lon_track = slon[sm_index[0], :]
 
-        print(sample_time_track[0:10, 0])
         ds = xr.Dataset()
 
         along_track_sz, cross_track_sz = np.shape(sample_time_track)
@@ -305,10 +309,10 @@ class OdyseaSwath:
         ds.attrs['creator_name'] = "Alexander Wineteer"
         ds.attrs['version_id'] = '0.1'
         ds.attrs['date_created'] = str(datetime.datetime.now())
-        ds.attrs['geospatial_lat_min'] = '-89.99N'
-        ds.attrs['geospatial_lat_max'] = '89.99N'
-        ds.attrs['geospatial_lon_min'] = '-180.00E'
-        ds.attrs['geospatial_lon_max'] = '180.00E'
+        ds.attrs['geospatial_lat_min'] = f'{lllat}N'
+        ds.attrs['geospatial_lat_max'] = f'{urlat}N'
+        ds.attrs['geospatial_lon_min'] = f'{lllon}E'
+        ds.attrs['geospatial_lon_max'] = f'{urlat}E'
         ds.attrs['time_coverage_start'] = str(datetime.datetime.utcfromtimestamp(np.nanmin(sample_time_track[sample_time_track>0])))
         ds.attrs['time_coverage_end']   = str(datetime.datetime.utcfromtimestamp(np.nanmax(sample_time_track)))
 
@@ -406,6 +410,7 @@ class OdyseaSwath:
                 break  # end_idx = len(self.time_stamp_vector_coarse)
             else:
                 end_idx = valid_orbit_cut_points[idx_orbit+1]
+            logger.debug(f'Processing swath {pass_total}')
 
             ds = self.getOrbitSwath(self.coarse_x[start_idx:end_idx],
                                     self.coarse_y[start_idx:end_idx],

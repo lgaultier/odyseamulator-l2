@@ -414,7 +414,7 @@ def generate_pass(params, i: int, c: int, o: xarray.Dataset,
         o_out = make_oi(o_out, signu=signu)
         #o_out = make_uv(o_out, signu=signu)
         file_out = os.path.join(params.path_out,
-                                f'{params.pattern_out}_c{c:02d}_p{i:03d}.nc')
+                                f'{params.pattern_out}_c{c:03d}_p{i:03d}.nc')
         list_drop = ['creator_name', 'institution', 'err_fore', 'err_aft',
                      'err_al', 'err_ac', 'err_eastward', 'err_northward',
                      'u_ac_model', 'u_al_model']

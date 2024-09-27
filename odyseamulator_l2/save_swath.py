@@ -136,7 +136,8 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
                               params.start_time, params.end_time,
                               year_ref=params.year_ref,
                               bounding_box=params.bounding_box)
-        list_orbit = [o for o in yorbits]
+        #list_orbit = [o for o in itertools.islice(yorbits, 0, 500)]
+        list_orbit = [o for o in itertools.islice(yorbits, 0, 50000)]
 
         logger.debug(f'generate noise interpolator')
         vradial_interpolator = generate_interpolator(params.lut_fn,
@@ -144,6 +145,7 @@ def run(parameter_file:str, first_cycle: int, last_cycle: int):
         import pickle
         dic_save = {'orbits': list_orbit,
                     'vradial_interpolator': vradial_interpolator}
+        logger.info(f'saving in file {save_file}')
         with open(f'{save_file}', 'wb') as f:
             pickle.dump(dic_save, f)
     else:
